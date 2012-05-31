@@ -300,18 +300,46 @@ class ViewFetcher {
 	}
 
 	/**
-	 * Returns an {@code ArrayList} of {@code View}s of the specified {@code Class} located under the specified {@code parent}.
-	 *
-	 * @param classToFilterBy return all instances of this class, e.g. {@code Button.class} or {@code GridView.class}
-	 * @param parent the parent {@code View} for where to start the traversal
-	 * @return an {@code ArrayList} of {@code View}s of the specified {@code Class} located under the specified {@code parent}
+	 * Returns an {@code ArrayList} of {@code View}s of the specified
+	 * {@code Class} located under the specified {@code parent}.
+	 * 
+	 * @param classToFilterBy
+	 *            return all instances of this class, e.g. {@code Button.class}
+	 *            or {@code GridView.class}
+	 * @param parent
+	 *            the parent {@code View} for where to start the traversal
+	 * @return an {@code ArrayList} of {@code View}s of the specified
+	 *         {@code Class} located under the specified {@code parent}
 	 */
 
-	public <T extends View> ArrayList<T> getCurrentViews(Class<T> classToFilterBy, View parent) {
+	public <T extends View> ArrayList<T> getCurrentViews(
+			Class<T> classToFilterBy, View parent) {
+		return getCurrentViews(classToFilterBy, parent, true);
+	}
+
+	/**
+	 * Returns an {@code ArrayList} of {@code View}s of the specified
+	 * {@code Class} located under the specified {@code parent}.
+	 * 
+	 * @param classToFilterBy
+	 *            return all instances of this class, e.g. {@code Button.class}
+	 *            or {@code GridView.class}
+	 * @param parent
+	 *            the parent {@code View} for where to start the traversal
+	 * @param isOnscreen
+	 *            true if only views that are at least halfway on-screen should
+	 *            be returned
+	 * @return an {@code ArrayList} of {@code View}s of the specified
+	 *         {@code Class} located under the specified {@code parent}
+	 */
+
+	public <T extends View> ArrayList<T> getCurrentViews(
+			Class<T> classToFilterBy, View parent, boolean isOnscreen) {
 		ArrayList<T> filteredViews = new ArrayList<T>();
-		List<View> allViews = getViews(parent, true);
-		for(View view : allViews){
-			if (view != null && classToFilterBy.isAssignableFrom(view.getClass())) {
+		List<View> allViews = getViews(parent, isOnscreen);
+		for (View view : allViews) {
+			if (view != null
+					&& classToFilterBy.isAssignableFrom(view.getClass())) {
 				filteredViews.add(classToFilterBy.cast(view));
 			}
 		}
@@ -320,22 +348,24 @@ class ViewFetcher {
 	}
 	
 	/**
-	 * Returns a view.
-	 *
-	 * @param classToFilterBy the class to filter by
-	 * @param views the list with views
-	 * @param index the index of the view
-	 * @return the view with a given index
+	 * Tries to guess which view is the most likely to be interesting. Returns
+	 * the most recently drawn view, which presumably will be the one that the
+	 * user was most recently interacting with.
+	 * 
+	 * @param views
+	 *            A list of potentially interesting views, likely a collection
+	 *            of views from a set of types, such as [{@link Button},
+	 *            {@link TextView}] or [{@link ScrollView}, {@link ListView}]
+	 * @return most recently drawn view
 	 */
-
-	public final <T extends View> T getView(Class<T> classToFilterBy, ArrayList<T> views){
+	public final <T extends View> T getFreshView(ArrayList<T> views) {
 		final int[] locationOnScreen = new int[2];
 		T viewToReturn = null;
 		long drawingTime = 0;
-		if(views == null){
-			views = RobotiumUtils.removeInvisibleViews(getCurrentViews(classToFilterBy));
-		}
-		for(T view : views){
+		if (views == null)
+			return null;
+
+		for (T view : views) {
 
 			view.getLocationOnScreen(locationOnScreen);
 

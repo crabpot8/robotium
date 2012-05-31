@@ -1,15 +1,16 @@
 package com.jayway.android.robotium.solo;
 
 import java.util.ArrayList;
+
 import android.app.Instrumentation;
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.AbsListView;
 import android.widget.GridView;
 import android.widget.ListView;
 import android.widget.ScrollView;
-
 
 /**
  * Contains scroll methods. Examples are scrollDown(), scrollUpList(),
@@ -21,7 +22,12 @@ import android.widget.ScrollView;
 
 class Scroller {
 
-	public enum Direction {UP, DOWN}
+	private final String LOG_TAG = "Robotium";
+
+	public enum Direction {
+		UP, DOWN
+	}
+
 	public static final int DOWN = 0;
 	public static final int UP = 1;
 	public enum Side {LEFT, RIGHT}
@@ -29,7 +35,6 @@ class Scroller {
 	private final ActivityUtils activityUtils;
 	private final ViewFetcher viewFetcher;
 	private final Sleeper sleeper;
-	
 
 	/**
 	 * Constructs this object.
@@ -46,7 +51,6 @@ class Scroller {
 		this.viewFetcher = viewFetcher;
 		this.sleeper = sleeper;
 	}
-
 
 	/**
 	 * Simulate touching a specific location and dragging to a new location.
@@ -86,61 +90,56 @@ class Scroller {
 		event = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_UP,toX, toY, 0);
 		try {
 			inst.sendPointerSync(event);
-		} catch (SecurityException ignored) {}
+		} catch (SecurityException se) {
+			se.printStackTrace();
+		}
 	}
-
 
 	/**
 	 * Scrolls a ScrollView.
 	 * 
-	 * @param direction the direction to be scrolled
-	 * @return {@code true} if more scrolling can be done
+	 * @param direction
+	 *            the direction to be scrolled
+	 * @return {@code true} if scrolling occurred, false if it did not
 	 * 
 	 */
 
-	private boolean scrollScrollView(int direction, ArrayList<ScrollView> scrollViews){
-		final ScrollView scroll = viewFetcher.getView(ScrollView.class, scrollViews);
-		int scrollAmount = 0;
-		
-		if(scroll != null){
-			int height = scroll.getHeight();
-			height--;
-			int scrollTo = 0;
+	private boolean scrollScrollView(final ScrollView view, int direction) {
 
-			if (direction == DOWN) {
-				scrollTo = (height);
-			}
-
-			else if (direction == UP) {
-				scrollTo = (-height);
-			}
-			scrollAmount = scroll.getScrollY();
-			scrollScrollViewTo(scroll,0, scrollTo);
-			if (scrollAmount == scroll.getScrollY()) {
-				return false;
-			}
-			else{
-				return true;
-			}
+		if (view == null) {
+			Log.e(LOG_TAG, "ScrollView was null");
+			return false;
 		}
-		return false;
-	}
-	
-	
-	/**
-	 * Scroll the list to a given line
-	 * @param listView the listView to scroll
-	 * @param line the line to scroll to
-	 */
 
-	private void scrollScrollViewTo(final ScrollView scrollView, final int x, final int y){
-		inst.runOnMainSync(new Runnable(){
-			public void run(){
-				scrollView.scrollBy(x, y);
+		int height = view.getHeight();
+		height--;
+		int scrollTo = -1;
+
+		if (direction == DOWN) {
+			scrollTo = height;
+		} else if (direction == UP) {
+			scrollTo = -height;
+		}
+
+		int originalY = view.getScrollY();
+
+		final int scrollThree = scrollTo;
+		inst.runOnMainSync(new Runnable() {
+			public void run() {
+				view.scrollBy(0, scrollThree);
 			}
 		});
-	}
 
+		Log.d(LOG_TAG, "Scrolled from " + originalY);
+		if (originalY == view.getScrollY()) {
+			Log.d(LOG_TAG, "No more scrolling");
+			return false;
+		} else {
+			Log.d(LOG_TAG, "Scrolling occured");
+			return true;
+		}
+
+	}
 
 	/**
 	 * Scrolls up and down.
@@ -151,24 +150,38 @@ class Scroller {
 	 */
 
 	public boolean scroll(int direction) {
-		final ArrayList<View> viewList = RobotiumUtils.removeInvisibleViews(viewFetcher.getViews(null, true));
-		final ArrayList<ListView> listViews = RobotiumUtils.filterViews(ListView.class, viewList);
 
-		if (listViews.size() > 0) {
-			return scrollList(ListView.class, null, direction, listViews);
-		} 
-		
-		final ArrayList<GridView> gridViews = RobotiumUtils.filterViews(GridView.class, viewList);
+		Log.d(LOG_TAG, "Scrolling " + direction);
 
-		if (gridViews.size() > 0) {
-			return scrollList(GridView.class, null, direction, gridViews);
-		} 
-
-		final ArrayList<ScrollView> scrollViews = RobotiumUtils.filterViews(ScrollView.class, viewList);
-
-		if (scrollViews.size() > 0) {
-			return scrollScrollView(direction, scrollViews);
+		final ArrayList<View> viewList = RobotiumUtils
+				.removeInvisibleViews(viewFetcher.getAllViews(true));
+		@SuppressWarnings("unchecked")
+		ArrayList<View> views = RobotiumUtils.filterViewsToSet(new Class[] {
+				ListView.class, ScrollView.class, GridView.class }, viewList);
+		View winner = viewFetcher.getFreshView(views);
+		if (winner == null)
+		{
+			Log.d(LOG_TAG, "Recognized no scrollable views");
+			return false;
 		}
+
+		if (winner instanceof ListView) {
+			Log.d(LOG_TAG, "Scrolling ListView");
+			return scrollList((ListView) winner, direction);
+		}
+
+		if (winner instanceof GridView) {
+			Log.d(LOG_TAG, "Scrolling GridView");
+			return scrollList((GridView) winner, direction);
+		}
+
+		if (winner instanceof ScrollView) {
+			Log.d(LOG_TAG, "Scrolling ScrollView");
+			return scrollScrollView((ScrollView) winner, direction);
+		}
+
+		
+		Log.w(LOG_TAG, "Found no understood scrollable views");
 		return false;
 	}
 
@@ -181,13 +194,13 @@ class Scroller {
 	 * 
 	 */
 
-	public <T extends AbsListView> boolean scrollList(Class<T> classToFilterBy, T absListView, int direction, ArrayList<T> listViews) {
-		
-		if(absListView == null)
-			absListView = (T) viewFetcher.getView(classToFilterBy, listViews);
+	public <T extends AbsListView> boolean scrollList(T absListView,
+			int direction) {
 
-		if(absListView == null)
+		if (absListView == null) {
+			Log.e(LOG_TAG, "Unable to find an AbsListView to scroll");
 			return false;
+		}
 
 		if (direction == DOWN) {
 			if (absListView.getLastVisiblePosition() >= absListView.getCount()-1) {

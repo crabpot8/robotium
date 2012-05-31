@@ -827,10 +827,9 @@ public class Solo {
 	 * Clicks on a View displaying a given text. Will automatically scroll when needed.
 	 *
 	 * @param text the text that should be clicked. The parameter will be interpreted as a regular expression
-	 * @param match the match of the text that should be clicked
+	 * @param match If multiple items match the regex, this determines which one will be clicked.
 	 *
 	 */
-	
 	public void clickOnText(String text, int match) {
 		clicker.clickOnText(text, false, match, true, 0);
 	}
@@ -1083,7 +1082,7 @@ public class Solo {
 	 */
 	
 	public boolean scrollDownList(int index) {
-		return scroller.scrollList(ListView.class, waiter.waitForAndGetView(index, ListView.class), Scroller.DOWN, null);
+		return scroller.scrollList(waiter.waitForAndGetView(index, ListView.class), Scroller.DOWN);
 	}
 	
 	/**
@@ -1095,7 +1094,7 @@ public class Solo {
 	 */
 	
 	public boolean scrollUpList(int index) {
-		return scroller.scrollList(ListView.class, waiter.waitForAndGetView(index, ListView.class), Scroller.UP, null);
+		return scroller.scrollList(waiter.waitForAndGetView(index, ListView.class), Scroller.UP);
 	}
 	
 	/**
